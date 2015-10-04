@@ -2,7 +2,7 @@
 #
 # Toolchain setup
 #
-TOOLCHAIN_PATH   = /usr/bin/
+TOOLCHAIN_PATH   = 
 TOOLCHAIN_PREFIX = arm-none-eabi
 AS      = $(TOOLCHAIN_PATH)$(TOOLCHAIN_PREFIX)-as
 CC      = $(TOOLCHAIN_PATH)$(TOOLCHAIN_PREFIX)-gcc
@@ -11,7 +11,7 @@ OBJCOPY = $(TOOLCHAIN_PATH)$(TOOLCHAIN_PREFIX)-objcopy
 OBJDUMP = $(TOOLCHAIN_PATH)$(TOOLCHAIN_PREFIX)-objdump
 SIZE    = $(TOOLCHAIN_PATH)$(TOOLCHAIN_PREFIX)-size
 GDB     = $(TOOLCHAIN_PATH)$(TOOLCHAIN_PREFIX)-gdb
-OPENOCD = /home/code/openocd/src/openocd
+OPENOCD = openocd
 OPENOCD_CFG = openocd.cfg
 
 #
@@ -24,17 +24,17 @@ OUTPUT_NAME = main
 #
 # Compiler and Linker setup
 #
-LINKER_SCRIPT = gcc_nrf51_blank.ld
+LINKER_SCRIPT = nrf51_xxaa.ld
 
 CFLAGS += -std=gnu99 -Wall -g -mcpu=cortex-m0 -mthumb -mabi=aapcs -mfloat-abi=soft
 # keep every function in separate section. This will allow linker to dump unused functions
 CFLAGS += -ffunction-sections -fdata-sections -fno-strict-aliasing
-CFLAGS += -fno-builtin --short-enums
+CFLAGS += --short-enums
 
-LDFLAGS += -L /usr/lib/gcc/arm-none-eabi/4.8/armv6-m/ -L /usr/lib/arm-none-eabi/newlib/armv6-m/
+LDFLAGS += -L /usr/lib/gcc/arm-none-eabi/4.9/armv6-m/ -L /usr/lib/arm-none-eabi/newlib/armv6-m/
 LDFLAGS += -T $(LINKER_SCRIPT)
-LDFLAGS += -Map $(OUTPUT_NAME).map
-
+LDFLAGS += -Wl,-Map,"$(OUTPUT_NAME).map"
+LDFLAGS += --specs=rdimon.specs -Wl,--start-group -lgcc -lc -lc -lm -lrdimon -Wl,--end-group
 
 HEX = $(OUTPUT_NAME).hex
 ELF = $(OUTPUT_NAME).elf
@@ -52,7 +52,7 @@ all: $(OBJS) $(HEX)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(ELF): $(OBJS)
-	$(LD) $(LDFLAGS) $(OBJS) -o $(ELF)
+	$(CC) $(CFLAGS) $(LDFLAGS) $(OBJS) -o $(ELF)
 	$(SIZE) $(ELF)
 
 $(HEX): $(ELF)
@@ -61,13 +61,13 @@ $(HEX): $(ELF)
 $(BIN): $(ELF)
 	$(OBJCOPY) -Obinary $(ELF) $(BIN)
 
-#START_ADDRESS = $($(OBJDUMP) -h $(ELF) -j .text | grep .text | awk '{print $$4}')
+START_ADDRESS = 0 #$($(OBJDUMP) -h $(ELF) -j .text | grep .text | awk '{print $$4}')
 
 erase:
 	$(OPENOCD) -c "set WORKAREASIZE 0;" -f $(OPENOCD_CFG) -c "init; reset halt; nrf51 mass_erase; shutdown;"
 
 flash: $(BIN)
-	$(OPENOCD) -c "set WORKAREASIZE 0;" -f $(OPENOCD_CFG) -c "init; reset halt; program $(BIN) $(STARTADDRESS) verify; shutdown;"
+	$(OPENOCD) -c "set WORKAREASIZE 0;" -f $(OPENOCD_CFG) -c "init; reset halt; program $(BIN) $(START_ADDRESS) verify; shutdown;"
 
 pinreset:
 	# mww: write word to memory
@@ -80,6 +80,7 @@ debug:
 gdb:
 	echo "target remote localhost:3333    \n\
           monitor reset halt              \n\
+          monitor arm semihosting enable  \n\
           file $(ELF)                     \n\
           load                            \n\
           b _start                        \n\
