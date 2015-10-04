@@ -64,10 +64,10 @@ $(BIN): $(ELF)
 START_ADDRESS = 0 #$($(OBJDUMP) -h $(ELF) -j .text | grep .text | awk '{print $$4}')
 
 erase:
-	$(OPENOCD) -c "set WORKAREASIZE 0;" -f $(OPENOCD_CFG) -c "init; reset halt; nrf51 mass_erase; shutdown;"
+	$(OPENOCD) -f $(OPENOCD_CFG) -c "init; reset halt; nrf51 mass_erase; shutdown;"
 
 flash: $(BIN)
-	$(OPENOCD) -c "set WORKAREASIZE 0;" -f $(OPENOCD_CFG) -c "init; reset halt; program $(BIN) $(START_ADDRESS) verify; shutdown;"
+	$(OPENOCD) -f $(OPENOCD_CFG) -c "init; reset halt; program $(BIN) $(START_ADDRESS) verify; shutdown;"
 
 pinreset:
 	# mww: write word to memory
@@ -75,7 +75,7 @@ pinreset:
 	#$(OPENOCD) -f $(OPENOCD_CFG) -c "init; reset halt; sleep 1; mww phys 0x4001e504 2; mww 0x40000544 1; reset; shutdown;"
 
 debug:
-	$(OPENOCD) -c "set WORKAREASIZE 0;" -f $(OPENOCD_CFG)
+	$(OPENOCD) -f $(OPENOCD_CFG)
 	
 gdb:
 	echo "target remote localhost:3333    \n\
@@ -87,3 +87,6 @@ gdb:
           monitor reset                   \n\
           continue                        \n\
           set interactive-mode on" | $(GDB)
+
+run:
+	$(OPENOCD) -f $(OPENOCD_CFG) -f openocd-run.cfg
